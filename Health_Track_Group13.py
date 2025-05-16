@@ -1,239 +1,300 @@
-#HealthTrack
-# Group 13
+# HealthTrackApp - GROUP 13_BSIT 1206
 
 import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog, scrolledtext
+from tkinter import ttk, messagebox, scrolledtext, filedialog
+import datetime
 
+# ---------- STYLES & CONFIGURATION ----------
+# Define a dictionary for centralized color and font configuration.
+style_config = {
+    "bg_color": "#f5f5f5",         # General background color
+    "card_bg": "#ffffff",          # Background for content cards
+    "accent_color": "#1976d2",     # Primary button and highlight color
+    "accent_light": "#e3f2fd",     # Sidebar background color
+    "section_bg": "#eaf4fb",       # Background for sections like forms
+    "font_main": ("Segoe UI", 12), # Main font style
+    "font_title": ("Segoe UI", 20, "bold") # Title font style
+}
+
+# Store results and client info to be reused across sections
 results = {}
+client_info = {}
 
+# ---------- MAIN APPLICATION CLASS ----------
 class HealthTrackApp:
-    def __init__(self, master):
-        self.master = master
-        master.title("HealthTrack")
-        master.geometry("650x520")
-        master.resizable(False, False)
+    def __init__(self, root):
+        # Initialize main app window
+        self.root = root
+        self.root.title("HealthTrack: Wellness Dashboard")
+        self.root.geometry("1080x720")
+        self.root.configure(bg=style_config["bg_color"])
 
-        self.user_name = ""
-        self.user_age = ""
+        # Apply global styling to widgets
+        style = ttk.Style()
+        style.theme_use("clam")
+        style.configure("TFrame", background=style_config["bg_color"])
+        style.configure("Sidebar.TFrame", background=style_config["accent_light"])
+        style.configure("Card.TFrame", background=style_config["card_bg"])
+        style.configure("Section.TLabelframe", background=style_config["section_bg"], padding=12)
+        style.configure("Accent.TButton",
+                        background=style_config["accent_color"],
+                        foreground="white",
+                        font=style_config["font_main"],
+                        relief="flat")
+        style.map("Accent.TButton",
+                  background=[('active', '#1565c0')],
+                  foreground=[('active', 'white')])
+        style.configure("TLabel", background=style_config["bg_color"], font=style_config["font_main"])
+        style.configure("TEntry", font=style_config["font_main"], padding=6)
+        style.configure("TCombobox", font=style_config["font_main"], padding=6)
 
-        self.style = ttk.Style()
-        self.style.configure("TLabel", font=("Arial", 12))
-        self.style.configure("TButton", font=("Arial", 11), padding=6)
-        self.style.configure("Title.TLabel", font=("Arial", 22, "bold"))
+        # ---------- MAIN VARIABLES ----------
+        # Personal information
+        self.name = tk.StringVar()
+        self.age = tk.IntVar()
+        self.gender = tk.StringVar()
+        self.date = tk.StringVar(value=datetime.date.today().strftime('%Y-%m-%d'))
 
-        self.create_widgets()
+        # BMI inputs
+        self.bmi_weight = tk.DoubleVar()
+        self.bmi_height = tk.DoubleVar()
+        self.bmi_result = tk.StringVar()
 
-    def create_widgets(self):
-        self.notebook = ttk.Notebook(self.master)
-        self.notebook.pack(fill=tk.BOTH, expand=True)
+        # BMR inputs
+        self.bmr_weight = tk.DoubleVar()
+        self.bmr_height = tk.DoubleVar()
+        self.bmr_goal = tk.StringVar()
+        self.bmr_result = tk.StringVar()
 
-        self.login_frame = ttk.Frame(self.notebook, padding=20)
-        self.main_menu_frame = ttk.Frame(self.notebook, padding=20)
+        # Blood Sugar input
+        self.sugar_value = tk.DoubleVar()
+        self.sugar_result = tk.StringVar()
 
-        self.notebook.add(self.login_frame, text="Login")
-        self.notebook.add(self.main_menu_frame, text="Main Menu", state="hidden")
+        # Urinalysis dropdown selections
+        self.pus_cells = tk.StringVar()
+        self.rbc = tk.StringVar()
+        self.transparency = tk.StringVar()
+        self.squamous_cells = tk.StringVar()
+        self.urates = tk.StringVar()
+        self.symptoms = tk.StringVar()
 
-        self.login_screen()
+        # Build layout and UI
+        self.build_layout()
 
-    def login_screen(self):
-        for widget in self.login_frame.winfo_children():
-            widget.destroy()
+    # ---------- GUI LAYOUT SETUP ----------
+    def build_layout(self):
+        # Container splits sidebar and main area
+        container = ttk.Frame(self.root)
+        container.pack(fill='both', expand=True)
 
-        ttk.Label(self.login_frame, text="HealthTrack", style="Title.TLabel").grid(row=0, column=0, columnspan=2, pady=20)
+        self.sidebar = ttk.Frame(container, width=200, style="Sidebar.TFrame")
+        self.sidebar.pack(side='left', fill='y')
 
-        ttk.Label(self.login_frame, text="Name:").grid(row=1, column=0, sticky=tk.W, padx=10, pady=5)
-        self.name_entry = ttk.Entry(self.login_frame, width=30)
-        self.name_entry.grid(row=1, column=1, pady=5)
+        self.main_content = ttk.Frame(container, style="TFrame")
+        self.main_content.pack(side='left', fill='both', expand=True)
 
-        ttk.Label(self.login_frame, text="Age:").grid(row=2, column=0, sticky=tk.W, padx=10, pady=5)
-        self.age_entry = ttk.Entry(self.login_frame, width=30)
-        self.age_entry.grid(row=2, column=1, pady=5)
+        # Sidebar with menu buttons for each function
+        ttk.Label(self.sidebar, text="☰ Menu", font=style_config["font_title"],
+                  foreground=style_config["accent_color"],
+                  background=style_config["accent_light"]).pack(pady=10)
 
-        submit_btn = ttk.Button(self.login_frame, text="Submit", command=self.save_user_info)
-        submit_btn.grid(row=3, column=0, columnspan=2, pady=15)
+        # Sidebar button definitions
+        for text, command in [
+            ("🧮 BMI Calculator", self.create_bmi_content),
+            ("🔥 BMR Calculator", self.create_bmr_content),
+            ("🩸 Blood Sugar", self.create_sugar_content),
+            ("🧪 Urinalysis", self.create_urinalysis_content),
+            ("🖨️ Save Summary", self.download_summary),
+            ("🚪 Exit", self.root.quit)
+        ]:
+            ttk.Button(self.sidebar, text=text, width=20, style="Accent.TButton", command=command).pack(pady=6, padx=10)
 
-    def save_user_info(self):
-        name = self.name_entry.get().strip()
-        age = self.age_entry.get().strip()
+        # Header, patient form, and results panel
+        self.create_header()
+        self.create_main_form()
+        self.create_summary_panel()
 
-        if name and age.isdigit() and 0 < int(age) < 120:
-            self.user_name = name
-            self.user_age = age
-            self.notebook.tab(1, state="normal")
-            self.update_main_menu()
-            self.notebook.select(1)
-        else:
-            messagebox.showerror("Input Error", "Please enter a valid name and age (0 < age < 120).")
+    # ---------- HEADER SECTION ----------
+    def create_header(self):
+        header = ttk.Frame(self.main_content, style="Card.TFrame")
+        header.pack(fill='x', padx=20, pady=(20, 10))
+        ttk.Label(header, text="HealthTrack", font=style_config["font_title"],
+                  foreground=style_config["accent_color"],
+                  background=style_config["card_bg"]).pack(anchor='w')
+        ttk.Label(header,
+                  text="\"Your health, tracked simply.\" Empowering wellness through clear and easy-to-understand assessments.",
+                  font=("Segoe UI", 10), wraplength=800, justify="left", background=style_config["card_bg"]).pack(anchor='w', pady=2)
 
-    def update_main_menu(self):
-        for widget in self.main_menu_frame.winfo_children():
-            widget.destroy()
+    # ---------- PATIENT INFORMATION FORM ----------
+    def create_main_form(self):
+        form = ttk.Labelframe(self.main_content, text="Patient Information", style="Section.TLabelframe")
+        form.pack(fill='x', padx=20, pady=(5, 5))
+        self.create_labeled_entry(form, "Name:", self.name)
+        self.create_labeled_entry(form, "Age:", self.age)
+        self.create_labeled_entry(form, "Gender:", self.gender)
+        self.create_labeled_entry(form, "Date:", self.date)
 
-        ttk.Label(self.main_menu_frame, text=f"Welcome {self.user_name}, Age {self.user_age}",
-                  font=("Arial", 14, "bold"), foreground="blue").grid(row=0, column=0, columnspan=2, pady=10)
+    # ---------- RESULTS SUMMARY PANEL ----------
+    def create_summary_panel(self):
+        summary = ttk.Labelframe(self.main_content, text="Summary Results", style="Section.TLabelframe")
+        summary.pack(fill='both', expand=True, padx=20, pady=(5, 20))
+        self.results_display = scrolledtext.ScrolledText(summary, height=20, font=("Consolas", 10), background="#ffffff")
+        self.results_display.pack(fill='both', expand=True)
 
-        buttons = [
-            ("BMI Calculator", self.calculate_bmi),
-            ("Calorie Needs (BMR) Calculator", self.calculate_bmr),
-            ("Blood Sugar Checker", self.check_blood_sugar),
-            ("Urinalysis Interpretation", self.analyze_urinalysis),
-            ("Exit", self.master.quit)
-        ]
+    # Utility for labeled input fields
+    def create_labeled_entry(self, parent, label, variable):
+        frame = ttk.Frame(parent)
+        frame.pack(fill='x', pady=6)
+        ttk.Label(frame, text=label, width=20, anchor='w').pack(side='left')
+        ttk.Entry(frame, textvariable=variable).pack(side='right', fill='x', expand=True)
 
-        for i, (text, cmd) in enumerate(buttons):
-            ttk.Button(self.main_menu_frame, text=text, width=35, command=cmd).grid(
-                row=i + 1, column=0, columnspan=2, pady=5)
-
-        ttk.Label(self.main_menu_frame, text="Results:", font=("Arial", 12, "bold"), foreground="green").grid(
-            row=len(buttons) + 1, column=0, columnspan=2, pady=(15, 5))
-
-        self.result_box = scrolledtext.ScrolledText(self.main_menu_frame, height=10, width=70, wrap=tk.WORD)
-        self.result_box.grid(row=len(buttons) + 2, column=0, columnspan=2, pady=5)
-        self.refresh_results()
-
+    # Update summary panel with results
     def refresh_results(self):
-        self.result_box.delete("1.0", tk.END)
-        if not results:
-            self.result_box.insert(tk.END, "No results available yet.\n")
-        else:
-            for key, value in results.items():
-                self.result_box.insert(tk.END, f"{key} Result:\n{value}\n\n")
+        client_info.update({
+            "Name": self.name.get(), "Age": self.age.get(), "Gender": self.gender.get(), "Date": self.date.get()
+        })
+        self.results_display.delete('1.0', tk.END)
+        for key, value in results.items():
+            self.results_display.insert(tk.END, f"{key} Result:\n{value}\n{'-'*40}\n")
+
+    # ---------- BMI FUNCTIONALITY ----------
+    def create_bmi_content(self):
+        win = tk.Toplevel(self.root)
+        win.title("BMI Calculator")
+        win.geometry("400x300")
+        self.create_labeled_entry(win, "Weight (kg):", self.bmi_weight)
+        self.create_labeled_entry(win, "Height (cm):", self.bmi_height)
+        ttk.Button(win, text="Calculate BMI", command=self.calculate_bmi).pack(pady=10)
+        ttk.Label(win, textvariable=self.bmi_result).pack(pady=10)
 
     def calculate_bmi(self):
         try:
-            height_cm = float(simpledialog.askstring("BMI Calculator", "Enter your height in cm:"))
-            weight_kg = float(simpledialog.askstring("BMI Calculator", "Enter your weight in kg:"))
-
-            height_m = height_cm / 100
-            bmi = weight_kg / (height_m ** 2)
-
-            if bmi < 18.5:
-                category = "Underweight"
-            elif 18.5 <= bmi < 24.9:
-                category = "Normal weight"
-            elif 25 <= bmi < 29.9:
-                category = "Overweight"
-            else:
-                category = "Obese"
-
-            result_text = f"Height: {height_cm} cm\nWeight: {weight_kg} kg\nBMI: {bmi:.2f} ({category})"
-            results["BMI"] = result_text
+            height_m = self.bmi_height.get() / 100
+            bmi = self.bmi_weight.get() / (height_m ** 2)
+            status = ("Underweight", "Normal", "Overweight", "Obese")
+            level = ("Consider increasing calorie intake.",
+                     "Maintain current lifestyle.",
+                     "Add more exercise and reduce calories.",
+                     "Consult a healthcare provider.")
+            index = 0 if bmi < 18.5 else 1 if bmi < 24.9 else 2 if bmi < 29.9 else 3
+            result = f"BMI: {bmi:.2f} ({status[index]})\nAdvice: {level[index]}"
+            self.bmi_result.set(result)
+            results["BMI"] = result
             self.refresh_results()
+        except:
+            messagebox.showerror("Error", "Invalid input for BMI.")
 
-        except (TypeError, ValueError):
-            messagebox.showerror("Input Error", "Please enter valid numeric values for height and weight.")
+    # ---------- BMR FUNCTIONALITY ----------
+    def create_bmr_content(self):
+        win = tk.Toplevel(self.root)
+        win.title("BMR Calculator")
+        win.geometry("400x350")
+        self.create_labeled_entry(win, "Weight (kg):", self.bmr_weight)
+        self.create_labeled_entry(win, "Height (cm):", self.bmr_height)
+        ttk.Label(win, text="Goal:").pack()
+        ttk.Combobox(win, textvariable=self.bmr_goal, values=["lose", "maintain", "gain"]).pack(pady=5)
+        ttk.Button(win, text="Calculate BMR", command=self.calculate_bmr).pack(pady=10)
+        ttk.Label(win, textvariable=self.bmr_result).pack(pady=10)
 
     def calculate_bmr(self):
         try:
-            gender = simpledialog.askstring("BMR Calculator", "Enter your gender (male/female):").strip().lower()
-            weight = float(simpledialog.askstring("BMR Calculator", "Enter your weight in kg:"))
-            height = float(simpledialog.askstring("BMR Calculator", "Enter your height in cm:"))
-            age = int(simpledialog.askstring("BMR Calculator", "Enter your age:"))
-
-            if gender == "male":
-                bmr = 10 * weight + 6.25 * height - 5 * age + 5
-            elif gender == "female":
-                bmr = 10 * weight + 6.25 * height - 5 * age - 161
-            else:
-                messagebox.showerror("Input Error", "Invalid gender.")
-                return
-
-            goal = simpledialog.askstring("BMR Calculator", "What is your goal? (lose/maintain/gain):").strip().lower()
-
-            if goal == "lose":
-                calories = bmr - 500
-                advice = "To lose weight, consume about 500 calories less than your daily needs."
-            elif goal == "maintain":
-                calories = bmr
-                advice = "To maintain your weight, consume about the same as your BMR."
-            elif goal == "gain":
-                calories = bmr + 500
-                advice = "To gain weight, consume about 500 calories more than your daily needs."
-            else:
-                messagebox.showerror("Input Error", "Invalid goal.")
-                return
-
-            result_text = f"Daily Calorie Needs for your goal ({goal}): {calories:.2f} calories/day\n{advice}"
-            results["BMR"] = result_text
+            w, h, a = self.bmr_weight.get(), self.bmr_height.get(), self.age.get()
+            g = self.gender.get().lower()
+            bmr = 10 * w + 6.25 * h - 5 * a + (5 if g == "male" else -161)
+            goal = self.bmr_goal.get().lower()
+            adj = bmr - 500 if goal == "lose" else bmr + 500 if goal == "gain" else bmr
+            advice = {
+                "lose": "Consume fewer calories, increase physical activity.",
+                "gain": "Increase calorie intake with nutrient-dense foods.",
+                "maintain": "Maintain current eating and activity levels."
+            }[goal]
+            result = f"Base BMR: {bmr:.0f} kcal\nAdjusted for goal: {adj:.0f} kcal\nAdvice: {advice}"
+            self.bmr_result.set(result)
+            results["BMR"] = result
             self.refresh_results()
+        except:
+            messagebox.showerror("Error", "Invalid input for BMR.")
 
-        except (ValueError, TypeError):
-            messagebox.showerror("Input Error", "Please enter valid values.")
+    # ---------- BLOOD SUGAR FUNCTIONALITY ----------
+    def create_sugar_content(self):
+        win = tk.Toplevel(self.root)
+        win.title("Blood Sugar Analyzer")
+        win.geometry("400x250")
+        self.create_labeled_entry(win, "Blood Sugar (mg/dL):", self.sugar_value)
+        ttk.Button(win, text="Analyze", command=self.analyze_blood_sugar).pack(pady=10)
+        ttk.Label(win, textvariable=self.sugar_result).pack(pady=10)
 
-    def check_blood_sugar(self):
+    def analyze_blood_sugar(self):
         try:
-            sugar = float(simpledialog.askstring("Blood Sugar Checker", "Enter your fasting blood sugar level (mg/dL):"))
-
+            sugar = self.sugar_value.get()
             if sugar < 70:
-                status = "Low blood sugar (Hypoglycemia)"
-            elif 70 <= sugar <= 99:
-                status = "Normal"
-            elif 100 <= sugar <= 125:
-                status = "Prediabetes"
+                s, a = "Low", "Eat fast-acting carbs."
+            elif sugar <= 99:
+                s, a = "Normal", "Maintain healthy diet."
+            elif sugar <= 125:
+                s, a = "Prediabetes", "Consult doctor and adopt diet changes."
             else:
-                status = "Diabetes (Consult a healthcare professional)"
-
-            result_text = f"Blood Sugar: {sugar} mg/dL - {status}"
-            results["Blood Sugar"] = result_text
+                s, a = "High", "Seek medical advice."
+            result = f"Blood Sugar: {sugar} mg/dL\nStatus: {s}\nAdvice: {a}"
+            self.sugar_result.set(result)
+            results["Blood Sugar"] = result
             self.refresh_results()
+        except:
+            messagebox.showerror("Error", "Invalid input for blood sugar.")
 
-        except ValueError:
-            messagebox.showerror("Input Error", "Please enter a number.")
+    # ---------- URINALYSIS FUNCTIONALITY ----------
+    def create_urinalysis_content(self):
+        win = tk.Toplevel(self.root)
+        win.title("Urinalysis Checker")
+        win.geometry("700x550")
 
-    def analyze_urinalysis(self):
-        findings = []
+        def dropdown(label, var, values):
+            ttk.Label(win, text=label).pack(anchor="w")
+            ttk.Combobox(win, textvariable=var, values=values).pack(fill="x", pady=2)
 
-        try:
-            wbc = int(simpledialog.askstring("Urinalysis", "Enter number of pus cells (WBC) per HPF:"))
-            rbc = int(simpledialog.askstring("Urinalysis", "Enter number of red blood cells (RBC) per HPF:"))
-            transparency = simpledialog.askstring("Urinalysis", "Enter urine transparency (Clear / Slightly Turbid / Turbid):").strip().lower()
-            squamous = int(simpledialog.askstring("Urinalysis", "Enter number of squamous epithelial cells per HPF:"))
-            urates = simpledialog.askstring("Urinalysis", "Enter description of amorphous urates (None / Few / Many):").strip().lower()
-            symptoms = simpledialog.askstring("Urinalysis", "Are you experiencing UTI symptoms? (Yes/No):").strip().lower()
-        except ValueError:
-            messagebox.showerror("Input Error", "Invalid input. Please enter correct values.")
-            return
+        dropdown("Pus Cells:", self.pus_cells, ["None", "0-5/hpf", "6-10/hpf", ">10/hpf"])
+        dropdown("RBC:", self.rbc, ["None", "0-2/hpf", "3-5/hpf", ">5/hpf"])
+        dropdown("Transparency:", self.transparency, ["Transparent", "Hazy", "Turbid"])
+        dropdown("Squamous Cells:", self.squamous_cells, ["None", "Few", "Many"])
+        dropdown("Urates:", self.urates, ["None", "Few", "Many"])
+        dropdown("Symptoms Present?", self.symptoms, ["Yes", "No"])
 
-        if wbc > 5:
-            findings.append("High WBC (Possible infection)")
-        elif wbc > 0:
-            findings.append("Mild WBC presence")
-        else:
-            findings.append("Normal WBC")
+        ttk.Button(win, text="Interpret", command=self.interpret_urinalysis).pack(pady=10)
+        self.urinalysis_result = scrolledtext.ScrolledText(win, height=8)
+        self.urinalysis_result.pack(fill="both", padx=10, pady=5)
 
-        if rbc > 3:
-            findings.append("High RBC (Possible bleeding or inflammation)")
-        elif rbc > 0:
-            findings.append("Mild RBC presence")
-        else:
-            findings.append("Normal RBC")
-
-        if transparency != "clear":
-            findings.append("Urine not clear")
-        else:
-            findings.append("Clear urine")
-
-        if squamous > 5:
-            findings.append("High squamous cells (Possible contamination)")
-        elif squamous > 0:
-            findings.append("Few squamous cells")
-        else:
-            findings.append("Normal squamous cells")
-
-        if urates == "few":
-            findings.append("Few amorphous urates (Normal)")
-        elif urates == "many":
-            findings.append("Many amorphous urates (Crystallization possible)")
-
-        if symptoms == "yes":
-            findings.append("UTI symptoms reported")
-        else:
-            findings.append("No UTI symptoms")
-
-        result_text = "\n".join(findings)
-        results["Urinalysis"] = result_text
+    def interpret_urinalysis(self):
+        findings, uti = [], False
+        if self.pus_cells.get() in ["6-10/hpf", ">10/hpf"]:
+            findings.append("High WBC – possible infection"); uti = True
+        if self.transparency.get() != "Transparent":
+            findings.append("Urine not clear – possible infection"); uti = True
+        if self.symptoms.get() == "Yes":
+            findings.append("Symptoms present – potential UTI"); uti = True
+        if self.rbc.get() in ["3-5/hpf", ">5/hpf"]:
+            findings.append("Elevated RBC – irritation or infection")
+        findings.append(f"UTI Detected: {'Yes' if uti else 'No'}")
+        findings.append("Advice: Please consult a physician." if uti else "Advice: No signs of UTI.")
+        result = "\n".join(findings)
+        self.urinalysis_result.delete("1.0", tk.END)
+        self.urinalysis_result.insert(tk.END, result)
+        results["Urinalysis"] = result
         self.refresh_results()
 
+    # ---------- SAVE SUMMARY FUNCTION ----------
+    def download_summary(self):
+        filename = filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Text files", "*.txt")])
+        if filename:
+            with open(filename, "w") as f:
+                f.write("HEALTHTRACK WELLNESS RECEIPT\n==============================\n")
+                for key, val in client_info.items():
+                    f.write(f"{key}: {val}\n")
+                f.write("\n==============================\n")
+                for key, val in results.items():
+                    f.write(f"{key} Result:\n{val}\n\n")
+            messagebox.showinfo("Success", f"Summary saved to {filename}")
+
+# ---------- MAIN LOOP TO RUN GUI ----------
 if __name__ == "__main__":
     root = tk.Tk()
     app = HealthTrackApp(root)
