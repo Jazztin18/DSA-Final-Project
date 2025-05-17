@@ -1,76 +1,71 @@
-# HealthTrackApp - GROUP 13_BSIT 1206
+# HealthTrackApp - GROUP 13
 
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext, filedialog
 import datetime
 
-# ---------- STYLES & CONFIGURATION ----------
-# Define a dictionary for centralized color and font configuration.
+# ---------- STYLE CONFIGURATION ----------
+# This dictionary centralizes the app’s color scheme and fonts for easy updates
 style_config = {
-    "bg_color": "#f5f5f5",         # General background color
-    "card_bg": "#ffffff",          # Background for content cards
-    "accent_color": "#1976d2",     # Primary button and highlight color
-    "accent_light": "#e3f2fd",     # Sidebar background color
-    "section_bg": "#eaf4fb",       # Background for sections like forms
-    "font_main": ("Segoe UI", 12), # Main font style
-    "font_title": ("Segoe UI", 20, "bold") # Title font style
+    "bg_color": "#f5f5f5",         # Main background color
+    "card_bg": "#ffffff",          # Background for cards (content blocks)
+    "accent_color": "#1976d2",     # Primary color for buttons and headers
+    "accent_light": "#e3f2fd",     # Light accent for sidebar
+    "section_bg": "#eaf4fb",       # Background for input sections
+    "font_main": ("Segoe UI", 12), # Default font
+    "font_title": ("Segoe UI", 20, "bold") # Font for titles
 }
 
-# Store results and client info to be reused across sections
+# Global dictionaries to store results and client info
 results = {}
 client_info = {}
 
 # ---------- MAIN APPLICATION CLASS ----------
 class HealthTrackApp:
     def __init__(self, root):
-        # Initialize main app window
+        # Set up main window
         self.root = root
         self.root.title("HealthTrack: Wellness Dashboard")
         self.root.geometry("1080x720")
         self.root.configure(bg=style_config["bg_color"])
 
-        # Apply global styling to widgets
+        # Apply style using ttk
         style = ttk.Style()
         style.theme_use("clam")
         style.configure("TFrame", background=style_config["bg_color"])
         style.configure("Sidebar.TFrame", background=style_config["accent_light"])
         style.configure("Card.TFrame", background=style_config["card_bg"])
         style.configure("Section.TLabelframe", background=style_config["section_bg"], padding=12)
-        style.configure("Accent.TButton",
-                        background=style_config["accent_color"],
-                        foreground="white",
-                        font=style_config["font_main"],
-                        relief="flat")
-        style.map("Accent.TButton",
-                  background=[('active', '#1565c0')],
+        style.configure("Accent.TButton", background=style_config["accent_color"],
+                        foreground="white", font=style_config["font_main"], relief="flat")
+        style.map("Accent.TButton", background=[('active', '#1565c0')],
                   foreground=[('active', 'white')])
         style.configure("TLabel", background=style_config["bg_color"], font=style_config["font_main"])
         style.configure("TEntry", font=style_config["font_main"], padding=6)
         style.configure("TCombobox", font=style_config["font_main"], padding=6)
 
-        # ---------- MAIN VARIABLES ----------
-        # Personal information
+        # Variables for user input
         self.name = tk.StringVar()
         self.age = tk.IntVar()
         self.gender = tk.StringVar()
         self.date = tk.StringVar(value=datetime.date.today().strftime('%Y-%m-%d'))
 
-        # BMI inputs
+        # Variables for BMI
         self.bmi_weight = tk.DoubleVar()
         self.bmi_height = tk.DoubleVar()
         self.bmi_result = tk.StringVar()
 
-        # BMR inputs
+        # Variables for BMR
         self.bmr_weight = tk.DoubleVar()
         self.bmr_height = tk.DoubleVar()
         self.bmr_goal = tk.StringVar()
         self.bmr_result = tk.StringVar()
 
-        # Blood Sugar input
+        # Variables for Blood Sugar
         self.sugar_value = tk.DoubleVar()
         self.sugar_result = tk.StringVar()
 
-        # Urinalysis dropdown selections
+        # Variables for Urinalysis
         self.pus_cells = tk.StringVar()
         self.rbc = tk.StringVar()
         self.transparency = tk.StringVar()
@@ -78,12 +73,15 @@ class HealthTrackApp:
         self.urates = tk.StringVar()
         self.symptoms = tk.StringVar()
 
-        # Build layout and UI
+        # List to store feature buttons (for enabling/disabling)
+        self.feature_buttons = []
+
+        # Build interface
         self.build_layout()
 
-    # ---------- GUI LAYOUT SETUP ----------
+    # ---------- LAYOUT SETUP ----------
     def build_layout(self):
-        # Container splits sidebar and main area
+        # Split screen into sidebar and main content
         container = ttk.Frame(self.root)
         container.pack(fill='both', expand=True)
 
@@ -93,28 +91,35 @@ class HealthTrackApp:
         self.main_content = ttk.Frame(container, style="TFrame")
         self.main_content.pack(side='left', fill='both', expand=True)
 
-        # Sidebar with menu buttons for each function
+        # Sidebar title
         ttk.Label(self.sidebar, text="☰ Menu", font=style_config["font_title"],
                   foreground=style_config["accent_color"],
                   background=style_config["accent_light"]).pack(pady=10)
 
-        # Sidebar button definitions
+        # Sidebar feature buttons (initially disabled)
         for text, command in [
             ("🧮 BMI Calculator", self.create_bmi_content),
             ("🔥 BMR Calculator", self.create_bmr_content),
             ("🩸 Blood Sugar", self.create_sugar_content),
             ("🧪 Urinalysis", self.create_urinalysis_content),
             ("🖨️ Save Summary", self.download_summary),
-            ("🚪 Exit", self.root.quit)
         ]:
-            ttk.Button(self.sidebar, text=text, width=20, style="Accent.TButton", command=command).pack(pady=6, padx=10)
+            btn = ttk.Button(self.sidebar, text=text, width=20, style="Accent.TButton",
+                             command=lambda c=command: self.safe_launch(c))
+            btn.pack(pady=6, padx=10)
+            self.feature_buttons.append(btn)
+            btn.state(["disabled"])  # Lock until patient info is entered
 
-        # Header, patient form, and results panel
+        # Exit button (always enabled)
+        ttk.Button(self.sidebar, text="🚪 Exit", width=20, style="Accent.TButton",
+                   command=self.root.quit).pack(pady=6, padx=10)
+
+        # Load header, form, and summary panel
         self.create_header()
         self.create_main_form()
         self.create_summary_panel()
 
-    # ---------- HEADER SECTION ----------
+    # ---------- HEADER DISPLAY ----------
     def create_header(self):
         header = ttk.Frame(self.main_content, style="Card.TFrame")
         header.pack(fill='x', padx=20, pady=(20, 10))
@@ -125,30 +130,61 @@ class HealthTrackApp:
                   text="\"Your health, tracked simply.\" Empowering wellness through clear and easy-to-understand assessments.",
                   font=("Segoe UI", 10), wraplength=800, justify="left", background=style_config["card_bg"]).pack(anchor='w', pady=2)
 
-    # ---------- PATIENT INFORMATION FORM ----------
+    # ---------- PATIENT INFO FORM ----------
     def create_main_form(self):
         form = ttk.Labelframe(self.main_content, text="Patient Information", style="Section.TLabelframe")
         form.pack(fill='x', padx=20, pady=(5, 5))
+
+        # Create fields
         self.create_labeled_entry(form, "Name:", self.name)
         self.create_labeled_entry(form, "Age:", self.age)
         self.create_labeled_entry(form, "Gender:", self.gender)
         self.create_labeled_entry(form, "Date:", self.date)
 
-    # ---------- RESULTS SUMMARY PANEL ----------
+        # Confirm button to unlock the rest of the app
+        ttk.Button(form, text="✅ Confirm Patient Info", style="Accent.TButton",
+                   command=self.enable_features).pack(pady=10)
+
+    # ---------- SUMMARY PANEL ----------
     def create_summary_panel(self):
         summary = ttk.Labelframe(self.main_content, text="Summary Results", style="Section.TLabelframe")
         summary.pack(fill='both', expand=True, padx=20, pady=(5, 20))
         self.results_display = scrolledtext.ScrolledText(summary, height=20, font=("Consolas", 10), background="#ffffff")
         self.results_display.pack(fill='both', expand=True)
 
-    # Utility for labeled input fields
+    # ---------- HELPER TO CREATE LABELED ENTRY ----------
     def create_labeled_entry(self, parent, label, variable):
         frame = ttk.Frame(parent)
         frame.pack(fill='x', pady=6)
         ttk.Label(frame, text=label, width=20, anchor='w').pack(side='left')
         ttk.Entry(frame, textvariable=variable).pack(side='right', fill='x', expand=True)
 
-    # Update summary panel with results
+    # ---------- VALIDATE PATIENT INFO ----------
+    def validate_patient_info(self):
+        return all([
+            self.name.get().strip(),
+            self.age.get() > 0,
+            self.gender.get().strip(),
+            self.date.get().strip()
+        ])
+
+    # ---------- ENABLE FEATURES IF INFO COMPLETE ----------
+    def enable_features(self):
+        if self.validate_patient_info():
+            for btn in self.feature_buttons:
+                btn.state(["!disabled"])
+            messagebox.showinfo("Success", "Patient info saved. Features unlocked!")
+        else:
+            messagebox.showerror("Error", "Please complete all fields (Name, Age, Gender, Date).")
+
+    # ---------- SAFETY WRAPPER TO CHECK INFO BEFORE LAUNCH ----------
+    def safe_launch(self, func):
+        if not self.validate_patient_info():
+            messagebox.showwarning("Missing Info", "Please fill in all patient information first.")
+            return
+        func()
+
+    # ---------- REFRESH SUMMARY DISPLAY ----------
     def refresh_results(self):
         client_info.update({
             "Name": self.name.get(), "Age": self.age.get(), "Gender": self.gender.get(), "Date": self.date.get()
@@ -266,11 +302,14 @@ class HealthTrackApp:
     def interpret_urinalysis(self):
         findings, uti = [], False
         if self.pus_cells.get() in ["6-10/hpf", ">10/hpf"]:
-            findings.append("High WBC – possible infection"); uti = True
+            findings.append("High WBC – possible infection")
+            uti = True
         if self.transparency.get() != "Transparent":
-            findings.append("Urine not clear – possible infection"); uti = True
+            findings.append("Urine not clear – possible infection")
+            uti = True
         if self.symptoms.get() == "Yes":
-            findings.append("Symptoms present – potential UTI"); uti = True
+            findings.append("Symptoms present – potential UTI")
+            uti = True
         if self.rbc.get() in ["3-5/hpf", ">5/hpf"]:
             findings.append("Elevated RBC – irritation or infection")
         findings.append(f"UTI Detected: {'Yes' if uti else 'No'}")
@@ -281,7 +320,7 @@ class HealthTrackApp:
         results["Urinalysis"] = result
         self.refresh_results()
 
-    # ---------- SAVE SUMMARY FUNCTION ----------
+    # ---------- SAVE SUMMARY TO TEXT FILE ----------
     def download_summary(self):
         filename = filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Text files", "*.txt")])
         if filename:
@@ -294,7 +333,7 @@ class HealthTrackApp:
                     f.write(f"{key} Result:\n{val}\n\n")
             messagebox.showinfo("Success", f"Summary saved to {filename}")
 
-# ---------- MAIN LOOP TO RUN GUI ----------
+# ---------- MAIN APPLICATION LAUNCH ----------
 if __name__ == "__main__":
     root = tk.Tk()
     app = HealthTrackApp(root)
